@@ -24,6 +24,12 @@ class RiskLevel(str, Enum):
     HIGH = "HIGH"
     CRITICAL = "CRITICAL"
 
+class SecurityCheck(BaseModel):
+    score: int
+    is_suspicious: Optional[bool] = None
+    suspicious: Optional[bool] = None
+    is_valid: Optional[bool] = None
+
 class DetectionResponse(BaseModel):
     is_suspicious: bool
     confidence_score: float = Field(..., ge=0, le=100)
@@ -35,6 +41,7 @@ class DetectionResponse(BaseModel):
     analysis_id: str
     timestamp: datetime
     final_prediction_reason: Optional[str] = None
+    checks: Dict[str, SecurityCheck]
 
 class BatchAnalysisRequest(BaseModel):
     products: List[ProductInfoRequest] = Field(..., max_items=50)
@@ -56,9 +63,25 @@ class FakeEcommerceDetectorAPI:
 
     def analyze_product(self, product_info: ProductInfoRequest) -> DetectionResponse:
         import uuid
+        print(f"[DEBUG] Analyzing product with URL: {product_info.url}")
         analysis_id = str(uuid.uuid4())
         red_flags = []
         verification_checks = {}
+        url_flagged = False
+        # URL-based risk detection
+        suspicious_domains = [
+            "suspicious-deals-store.com", "fake-shop.com", "scam-mart.net", "fraudstore.xyz"
+        ]
+        if product_info.url:
+            for domain in suspicious_domains:
+                if domain in product_info.url:
+                    red_flags.append(f"Suspicious domain detected: {domain}")
+                    verification_checks["url"] = "Domain is on scam list"
+                    url_flagged = True
+            if any(x in product_info.url for x in [".xyz", "/bitcoin", "/crypto", "pay-now"]):
+                red_flags.append("Suspicious URL pattern detected")
+                verification_checks["url_pattern"] = "URL contains suspicious pattern"
+                url_flagged = True
 
         seller_score, seller_flags = self._check_seller(product_info.seller)
         desc_score, desc_flags = self._analyze_description(product_info.description)
@@ -66,10 +89,32 @@ class FakeEcommerceDetectorAPI:
         red_flags.extend(seller_flags + desc_flags + price_flags)
 
         all_scores = [seller_score, desc_score, price_score]
-        confidence_score = sum(all_scores) / len([s for s in all_scores if s is not None])
-        risk_level = self._calculate_risk_level(confidence_score, len(red_flags))
-        is_suspicious = confidence_score > 60 or len(red_flags) >= 3
-        reason = "High confidence score" if confidence_score > 60 else "Multiple red flags" if len(red_flags) >= 3 else "Low risk indicators"
+        url_risk_score = 80 if url_flagged else 0
+        if url_flagged:
+            confidence_score = url_risk_score
+            risk_level = "HIGH"
+            is_suspicious = True
+            reason = "Suspicious URL detected"
+        else:
+            confidence_score = sum(all_scores) / len([s for s in all_scores if s is not None])
+            risk_level = self._calculate_risk_level(confidence_score, len(red_flags))
+            is_suspicious = confidence_score > 60 or len(red_flags) >= 3
+            reason = "High confidence score" if confidence_score > 60 else "Multiple red flags" if len(red_flags) >= 3 else "Low risk indicators"
+
+        print(f"[DEBUG] Result: score={confidence_score}, level={risk_level}, red_flags={red_flags}")
+        print(f"[DEBUG] URL: {product_info.url}, url_flagged: {url_flagged}, confidence_score: {confidence_score}")
+        # --- Security Checks (placeholder logic) ---
+        checks = {
+            "domain": SecurityCheck(score=80 if url_flagged else 100, is_suspicious=url_flagged),
+            "ssl": SecurityCheck(score=100, is_valid=True),
+            "contact_info": SecurityCheck(score=100, suspicious=False),
+            "customer_reviews": SecurityCheck(score=100, is_suspicious=False),
+            "payment_security": SecurityCheck(score=100, is_suspicious=False)
+        }
+        if url_flagged:
+            checks["domain"].score = 20
+            checks["domain"].is_suspicious = True
+        # --- End Security Checks ---
 
         result = DetectionResponse(
             is_suspicious=is_suspicious,
@@ -81,7 +126,8 @@ class FakeEcommerceDetectorAPI:
             verification_checks=verification_checks,
             analysis_id=analysis_id,
             timestamp=datetime.now(),
-            final_prediction_reason=reason
+            final_prediction_reason=reason,
+            checks=checks
         )
         self.analysis_cache[analysis_id] = result
         return result

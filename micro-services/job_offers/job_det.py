@@ -59,6 +59,7 @@ class DetectionResponse(BaseModel):
     analysis_id: str
     timestamp: datetime
     final_prediction_reason: Optional[str] = None
+    checks: Dict[str, str]
 
 class BatchAnalysisRequest(BaseModel):
     companies: List[CompanyInfoRequest] = Field(..., max_items=50)
@@ -130,7 +131,8 @@ class FakeInternshipDetectorAPI:
             similarity_matches=[],
             analysis_id=analysis_id,
             timestamp=datetime.now(),
-            final_prediction_reason=reason
+            final_prediction_reason=reason,
+            checks={}
         )
 
         self.analysis_cache[analysis_id] = result

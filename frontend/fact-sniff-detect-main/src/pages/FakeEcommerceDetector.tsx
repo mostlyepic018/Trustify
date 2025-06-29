@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +10,19 @@ import { toast } from "sonner";
 const FakeEcommerceDetector = () => {
   const [url, setUrl] = useState('');
   const [isScanning, setIsScanning] = useState(false);
-  const [results, setResults] = useState<any>(null);
+  const [results, setResults] = useState<{
+    verdict: string;
+    riskScore: number;
+    flags: string[];
+    checks?: {
+      [key: string]: {
+        score: number;
+        is_suspicious?: boolean;
+        suspicious?: boolean;
+        is_valid?: boolean;
+      };
+    };
+  } | null>(null);
 
   const handleScan = async () => {
     if (!url.trim()) {
@@ -22,29 +33,26 @@ const FakeEcommerceDetector = () => {
     setIsScanning(true);
     toast.info("Analyzing e-commerce website...");
 
-    setTimeout(() => {
-      const mockResults = {
-        verdict: Math.random() > 0.6 ? 'Suspicious' : Math.random() > 0.3 ? 'Safe' : 'Fake',
-        riskScore: Math.floor(Math.random() * 100),
-        checks: {
-          domainAge: Math.floor(Math.random() * 100),
-          sslCertificate: Math.floor(Math.random() * 100),
-          contactInfo: Math.floor(Math.random() * 100),
-          customerReviews: Math.floor(Math.random() * 100),
-          paymentSecurity: Math.floor(Math.random() * 100),
-        },
-        flags: [
-          { type: 'Domain Registration', status: Math.random() > 0.5 ? 'pass' : 'fail', description: 'Domain age and registration details' },
-          { type: 'SSL Security', status: Math.random() > 0.5 ? 'pass' : 'warning', description: 'HTTPS encryption and certificate validity' },
-          { type: 'Contact Information', status: Math.random() > 0.5 ? 'pass' : 'fail', description: 'Verifiable business contact details' },
-          { type: 'Customer Reviews', status: Math.random() > 0.5 ? 'pass' : 'warning', description: 'Authentic customer feedback verification' },
-        ]
-      };
-      
-      setResults(mockResults);
-      setIsScanning(false);
+    try {
+      const response = await fetch("http://localhost:8000/ecommerce/product-analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: url, url })
+      });
+      if (!response.ok) throw new Error("Failed to analyze website");
+      const data = await response.json();
+      setResults({
+        verdict: data.risk_level,
+        riskScore: data.confidence_score,
+        flags: data.red_flags,
+        checks: data.checks
+      });
       toast.success("Analysis complete!");
-    }, 3000);
+    } catch (error) {
+      toast.error("Failed to analyze website");
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   const getVerdictColor = (verdict: string) => {
@@ -178,29 +186,6 @@ const FakeEcommerceDetector = () => {
               </CardContent>
             </Card>
 
-            {/* Security Checks Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Object.entries(results.checks).map(([key, value]) => (
-                <Card key={key} className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-white/20">
-                  <CardContent className="p-4 text-center space-y-3">
-                    <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 rounded-xl mx-auto">
-                      {key === 'domainAge' && <Globe className="w-6 h-6 text-amber-600" />}
-                      {key === 'sslCertificate' && <Shield className="w-6 h-6 text-amber-600" />}
-                      {key === 'contactInfo' && <Globe className="w-6 h-6 text-amber-600" />}
-                      {key === 'customerReviews' && <Star className="w-6 h-6 text-amber-600" />}
-                      {key === 'paymentSecurity' && <CreditCard className="w-6 h-6 text-amber-600" />}
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-slate-900 dark:text-white">{value}%</div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400 capitalize">
-                        {key.replace(/([A-Z])/g, ' $1').trim()}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
             {/* Detailed Flags */}
             <Card className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-white/20">
               <CardHeader>
@@ -211,22 +196,59 @@ const FakeEcommerceDetector = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {results.flags.map((flag: any, index: number) => (
-                    <div key={index} className="flex items-start gap-3 p-4 rounded-lg bg-slate-50/50 dark:bg-slate-700/50">
-                      {getStatusIcon(flag.status)}
-                      <div className="flex-1">
-                        <div className="font-medium text-slate-900 dark:text-white mb-1">
-                          {flag.type}
-                        </div>
-                        <div className="text-sm text-slate-600 dark:text-slate-400">
-                          {flag.description}
+                  {results.flags && results.flags.length > 0 ? (
+                    results.flags.map((flag: string, index: number) => (
+                      <div key={index} className="flex items-start gap-3 p-4 rounded-lg bg-slate-50/50 dark:bg-slate-700/50">
+                        <AlertTriangle className="w-4 h-4 text-amber-500 mt-1" />
+                        <div className="flex-1">
+                          <div className="font-medium text-slate-900 dark:text-white mb-1">
+                            Red Flag
+                          </div>
+                          <div className="text-sm text-slate-600 dark:text-slate-400">
+                            {flag}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <div className="text-slate-600 dark:text-slate-400">No red flags detected.</div>
+                  )}
                 </div>
               </CardContent>
             </Card>
+
+            {/* Security Checks Grid */}
+            {results.checks && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Object.entries(results.checks).map(([key, value]) => {
+                  const check = value as any;
+                  return (
+                    <Card key={key} className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-white/20">
+                      <CardContent className="p-4 text-center space-y-3">
+                        <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 rounded-xl mx-auto">
+                          {key === 'domain' && <Globe className="w-6 h-6 text-amber-600" />}
+                          {key === 'ssl' && <Shield className="w-6 h-6 text-amber-600" />}
+                          {key === 'contact_info' && <Globe className="w-6 h-6 text-amber-600" />}
+                          {key === 'customer_reviews' && <Star className="w-6 h-6 text-amber-600" />}
+                          {key === 'payment_security' && <CreditCard className="w-6 h-6 text-amber-600" />}
+                        </div>
+                        <div>
+                          <div className="text-lg font-bold text-slate-900 dark:text-white">{check.score}%</div>
+                          <div className="text-sm text-slate-600 dark:text-slate-400 capitalize">
+                            {key.replace(/_/g, ' ')}
+                          </div>
+                          {check.is_suspicious || check.suspicious === true ? (
+                            <div className="text-red-500 text-xs font-semibold mt-1">Suspicious</div>
+                          ) : (
+                            <div className="text-emerald-500 text-xs font-semibold mt-1">OK</div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
