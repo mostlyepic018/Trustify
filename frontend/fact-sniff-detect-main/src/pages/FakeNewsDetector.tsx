@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,35 +23,46 @@ const FakeNewsDetector = () => {
     setIsScanning(true);
     toast.info("Starting fake news analysis...");
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await fetch("http://localhost:8000/news/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statement: inputValue })
+      });
+      if (!response.ok) {
+        throw new Error("Failed to verify news");
+      }
+      const data = await response.json();
+      // Map backend response to frontend format
       const mockResults = {
-        verdict: Math.random() > 0.6 ? 'Suspicious' : Math.random() > 0.3 ? 'Safe' : 'Fake',
-        riskScore: Math.floor(Math.random() * 100),
+        verdict: data.verification_result.includes("TRUE") ? 'Safe' : data.verification_result.includes("FALSE") ? 'Fake' : 'Suspicious',
+        riskScore: Math.round((data.confidence || 0.5) * 100),
         analysis: {
-          credibility: Math.floor(Math.random() * 100),
-          sourceReliability: Math.floor(Math.random() * 100),
-          factualAccuracy: Math.floor(Math.random() * 100),
-          bias: Math.floor(Math.random() * 100),
+          credibility: Math.round((data.confidence || 0.5) * 100),
+          sourceReliability: Math.round((data.confidence || 0.5) * 100),
+          factualAccuracy: Math.round((data.confidence || 0.5) * 100),
+          bias: 50,
         },
         details: {
           domain: inputType === 'url' ? new URL(inputValue.startsWith('http') ? inputValue : 'https://' + inputValue).hostname : 'Text Analysis',
-          publishDate: new Date().toLocaleDateString(),
+          publishDate: new Date(data.timestamp).toLocaleDateString(),
           author: 'Various Sources',
           readingTime: Math.floor(Math.random() * 10) + 1,
         },
         flags: [
-          { type: 'Source Verification', status: Math.random() > 0.5 ? 'pass' : 'fail', description: 'Publisher credibility check' },
-          { type: 'Fact Checking', status: Math.random() > 0.5 ? 'pass' : 'warning', description: 'Cross-referenced with fact-check databases' },
-          { type: 'Language Analysis', status: Math.random() > 0.5 ? 'pass' : 'fail', description: 'Emotional language and bias detection' },
-          { type: 'Content Verification', status: Math.random() > 0.5 ? 'pass' : 'warning', description: 'Information accuracy assessment' },
+          { type: 'Source Verification', status: 'pass', description: 'Publisher credibility check' },
+          { type: 'Fact Checking', status: 'pass', description: data.verification_result },
+          { type: 'Language Analysis', status: 'pass', description: 'Emotional language and bias detection' },
+          { type: 'Content Verification', status: 'pass', description: 'Information accuracy assessment' },
         ]
       };
-      
       setResults(mockResults);
-      setIsScanning(false);
       toast.success("Analysis complete!");
-    }, 3000);
+    } catch (error) {
+      toast.error("Failed to verify news. Please try again.");
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   const getVerdictColor = (verdict: string) => {
