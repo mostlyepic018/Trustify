@@ -15,16 +15,15 @@ load_dotenv(env_path)
 Pinecone_key = os.getenv("Pinecone_key")
 
     
-def upload_to_pinecone(index_name, docs, namespace, dimensions=None, embedding_model="bge-m3:latest"):
+def upload_to_pinecone(index_name, docs, namespace,embedding_model="granite-embedding:30m"):
     pc = Pinecone(api_key=Pinecone_key)
     existing_indexes = [index_info["name"] for index_info in pc.list_indexes()]
 
     if index_name not in existing_indexes:
-        if dimensions is None:
-            raise Exception("Please provide dimensions as an argument.")
+        
         pc.create_index(
             name=index_name,
-            dimension=dimensions,
+            dimension=384,
             metric="cosine",
             spec=ServerlessSpec(cloud="aws", region="us-east-1"),
         )
@@ -55,7 +54,7 @@ def upload_to_pinecone(index_name, docs, namespace, dimensions=None, embedding_m
 
     return True
 
-def deleat_by_name(index_name,namespace,embedding_model="bge-m3:latest"):
+def deleat_by_name(index_name,namespace,embedding_model="granite-embedding:30m"):
     pc = Pinecone(api_key=Pinecone_key)
     index = pc.Index(index_name)
     embeddings = OllamaEmbeddings(model=embedding_model)
@@ -65,7 +64,7 @@ def deleat_by_name(index_name,namespace,embedding_model="bge-m3:latest"):
 
     return True
 # improve this function
-def get_related_docs(index_name,namespace,question,embedding_model="bge-m3:latest"):
+def get_related_docs(index_name,namespace,question,embedding_model="granite-embedding:30m"):
     pc = Pinecone(api_key=Pinecone_key)
     index = pc.Index(index_name)
     embeddings = OllamaEmbeddings(model=embedding_model)
