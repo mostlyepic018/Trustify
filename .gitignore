@@ -143,7 +143,12 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+# Ignore everything in detect-fake-imagee
+detect-fake-imagee/*
 
+# But do NOT ignore these two files
+!detect-fake-imagee/download_model2
+!detect-fake-imagee/main
 # Spyder project settings
 .spyderproject
 .spyproject

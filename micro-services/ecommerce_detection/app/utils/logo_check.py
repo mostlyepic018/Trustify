@@ -8,8 +8,8 @@ import os
 
 # Load known brand logo hashes once
 BRAND_LOGOS = {
-    "Amazon": imagehash.average_hash(Image.open("ecommerce_detection/app/assets/amazon_logo.png")),
-    "Flipkart": imagehash.average_hash(Image.open("ecommerce_detection/app/assets/flipkart_logo.png")),
+    "Amazon": imagehash.average_hash(Image.open("/home/shasank/shasank/Hackathon/WOW-githm/fack-finder/micro-services/ecommerce_detection/app/assets/amazon_logo.png")),
+    "Flipkart": imagehash.average_hash(Image.open("/home/shasank/shasank/Hackathon/WOW-githm/fack-finder/micro-services/ecommerce_detection/app/assets/flipkart_logo.png")),
     # Add more logos as needed
 }
 

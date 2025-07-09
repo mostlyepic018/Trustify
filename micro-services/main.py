@@ -17,6 +17,8 @@ from ecommerce_detection.app.utils.whois_check import analyze_whois
 from ecommerce_detection.app.utils.headers_check import analyze_headers
 from ecommerce_detection.app.utils.link_checker import check_broken_links
 
+
+
 # Image detection imports
 from transformers import AutoModelForImageClassification, AutoImageProcessor
 from PIL import Image
@@ -52,7 +54,10 @@ class UrlRequest(BaseModel):
     url: str
 
 app = FastAPI()
-
+origins = [
+    "http://localhost:8080", # The origin of your React app
+    # Add other origins if needed
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Or specify your frontend URL(s)

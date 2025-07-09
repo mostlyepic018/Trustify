@@ -9,14 +9,14 @@ import os
 load_dotenv()  # Load variables from .env file
 
 
-from app.utils.domain_check import check_domain_age
-from app.utils.ssl_check import check_ssl_certificate
-from app.utils.logo_check import check_logo_similarity
-from app.utils.pattern_check import detect_suspicious_patterns
-from app.utils.safe_browsing import check_safe_browsing
-from app.utils.whois_check import analyze_whois
-from app.utils.headers_check import analyze_headers
-from app.utils.link_checker import check_broken_links
+from utils.domain_check import check_domain_age
+from utils.ssl_check import check_ssl_certificate
+from utils.logo_check import check_logo_similarity
+from utils.pattern_check import detect_suspicious_patterns
+from utils.safe_browsing import check_safe_browsing
+from utils.whois_check import analyze_whois
+from utils.headers_check import analyze_headers
+from utils.link_checker import check_broken_links
 
 # ✅ Define Pydantic request model
 class UrlRequest(BaseModel):
