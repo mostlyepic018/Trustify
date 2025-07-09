@@ -27,36 +27,31 @@ const FakeNewsDetector = () => {
       const response = await fetch("http://localhost:8000/news/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ statement: inputValue })
+        body: JSON.stringify({ query: inputValue })
       });
       if (!response.ok) {
         throw new Error("Failed to verify news");
       }
       const data = await response.json();
       // Map backend response to frontend format
-      const mockResults = {
-        verdict: data.verification_result.includes("TRUE") ? 'Safe' : data.verification_result.includes("FALSE") ? 'Fake' : 'Suspicious',
-        riskScore: Math.round((data.confidence || 0.5) * 100),
-        analysis: {
-          credibility: Math.round((data.confidence || 0.5) * 100),
-          sourceReliability: Math.round((data.confidence || 0.5) * 100),
-          factualAccuracy: Math.round((data.confidence || 0.5) * 100),
-          bias: 50,
-        },
-        details: {
-          domain: inputType === 'url' ? new URL(inputValue.startsWith('http') ? inputValue : 'https://' + inputValue).hostname : 'Text Analysis',
-          publishDate: new Date(data.timestamp).toLocaleDateString(),
-          author: 'Various Sources',
-          readingTime: Math.floor(Math.random() * 10) + 1,
-        },
-        flags: [
-          { type: 'Source Verification', status: 'pass', description: 'Publisher credibility check' },
-          { type: 'Fact Checking', status: 'pass', description: data.verification_result },
-          { type: 'Language Analysis', status: 'pass', description: 'Emotional language and bias detection' },
-          { type: 'Content Verification', status: 'pass', description: 'Information accuracy assessment' },
-        ]
-      };
-      setResults(mockResults);
+      const verificationResult = data.result;
+      let parsedResult;
+      try {
+        if (typeof verificationResult === 'string') {
+          // Try to find the first JSON object in the string (in case Gemini returns text + JSON)
+          const match = verificationResult.match(/\{[\s\S]*\}/);
+          if (match) {
+            parsedResult = JSON.parse(match[0]);
+          } else {
+            parsedResult = { status: 'error', verification_result: verificationResult };
+          }
+        } else {
+          parsedResult = verificationResult;
+        }
+      } catch (e) {
+        parsedResult = { status: 'error', verification_result: 'Could not parse verification result.' };
+      }
+      setResults(parsedResult);
       toast.success("Analysis complete!");
     } catch (error) {
       toast.error("Failed to verify news. Please try again.");
@@ -214,123 +209,29 @@ const FakeNewsDetector = () => {
 
         {/* Results */}
         {results && (
-          <div className="space-y-6 animate-fade-in">
-            {/* Verdict */}
             <Card className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-white/20">
-              <CardContent className="py-8">
-                <div className="text-center space-y-4">
-                  <div className={`inline-flex items-center gap-2 px-6 py-3 rounded-full text-lg font-semibold border-2 ${getVerdictColor(results.verdict)}`}>
-                    {results.verdict === 'Safe' && <CheckCircle className="w-6 h-6" />}
-                    {results.verdict === 'Suspicious' && <AlertTriangle className="w-6 h-6" />}
-                    {results.verdict === 'Fake' && <XCircle className="w-6 h-6" />}
-                    {results.verdict}
-                  </div>
-                  <div className="space-y-2">
-                    <div className="text-4xl font-bold text-slate-900 dark:text-white">
-                      {results.riskScore}%
-                    </div>
-                    <div className="text-slate-600 dark:text-slate-400">
-                      Risk Score
-                    </div>
-                  </div>
-                </div>
+            <CardContent className="py-8 text-center space-y-4">
+              <h2 className="text-xl font-bold mb-4 text-slate-900 dark:text-white">Verification Result</h2>
+              {results.status && (
+                <div className="text-base font-semibold text-slate-700 dark:text-slate-200">Status: {results.status}</div>
+              )}
+              {results.verification_result && (
+                <div className="text-lg font-bold text-slate-900 dark:text-white">{results.verification_result}</div>
+              )}
+              {results.confidence && (
+                <div className="text-base text-slate-700 dark:text-slate-200">Confidence: {results.confidence}</div>
+              )}
+              {results.reason && (
+                <div className="text-base text-slate-700 dark:text-slate-200">Reason: {results.reason}</div>
+              )}
+              {results.timestamp && (
+                <div className="text-sm text-slate-500 dark:text-slate-400">Checked at: {results.timestamp}</div>
+              )}
+              {results.status === 'error' && !results.verification_result && (
+                <div className="text-base text-red-600">Could not parse verification result.</div>
+              )}
               </CardContent>
             </Card>
-
-            {/* Analysis Details */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Metrics */}
-              <Card className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-white/20">
-                <CardHeader>
-                  <CardTitle className="text-slate-900 dark:text-white">Analysis Metrics</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {Object.entries(results.analysis).map(([key, value]) => (
-                    <div key={key} className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300 capitalize">
-                          {key.replace(/([A-Z])/g, ' $1').trim()}
-                        </span>
-                        <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                          {value}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
-                        <div
-                          className="bg-gradient-to-r from-red-500 to-red-600 h-2 rounded-full transition-all duration-500"
-                          style={{ width: `${value}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              {/* Content Details */}
-              <Card className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-white/20">
-                <CardHeader>
-                  <CardTitle className="text-slate-900 dark:text-white">Content Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <Globe className="w-5 h-5 text-slate-400" />
-                    <div>
-                      <div className="text-sm font-medium text-slate-900 dark:text-white">Source</div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400">{results.details.domain}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Calendar className="w-5 h-5 text-slate-400" />
-                    <div>
-                      <div className="text-sm font-medium text-slate-900 dark:text-white">Published</div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400">{results.details.publishDate}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <User className="w-5 h-5 text-slate-400" />
-                    <div>
-                      <div className="text-sm font-medium text-slate-900 dark:text-white">Author</div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400">{results.details.author}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Eye className="w-5 h-5 text-slate-400" />
-                    <div>
-                      <div className="text-sm font-medium text-slate-900 dark:text-white">Reading Time</div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400">{results.details.readingTime} min</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Verification Flags */}
-            <Card className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-white/20">
-              <CardHeader>
-                <CardTitle className="text-slate-900 dark:text-white">Verification Checks</CardTitle>
-                <CardDescription>
-                  Detailed breakdown of our analysis process
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {results.flags.map((flag: any, index: number) => (
-                    <div key={index} className="flex items-start gap-3 p-4 rounded-lg bg-slate-50/50 dark:bg-slate-700/50">
-                      {getStatusIcon(flag.status)}
-                      <div className="flex-1">
-                        <div className="font-medium text-slate-900 dark:text-white mb-1">
-                          {flag.type}
-                        </div>
-                        <div className="text-sm text-slate-600 dark:text-slate-400">
-                          {flag.description}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         )}
       </div>
     </DashboardLayout>

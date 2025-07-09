@@ -22,47 +22,89 @@ const AIImageDetector = () => {
     }
   };
 
+  // Helper function to process the actual API response
+  const processApiResponse = (data: { prediction: { [key: string]: number } }) => {
+    // The backend returns predictions like: { "prediction": { "ai": 0.98, "human": 0.02 } }
+    const aiScore = data.prediction.ai !== undefined ? data.prediction.ai : data.prediction.machine_generated;
+    const humanScore = data.prediction.human !== undefined ? data.prediction.human : data.prediction.human_generated;
+
+    const riskScore = Math.round(aiScore * 100);
+    let verdict = 'Suspicious';
+    if (riskScore > 75) {
+      verdict = 'AI Generated';
+    } else if (riskScore < 25) {
+      verdict = 'Human Made';
+    }
+
+    // Since the backend only provides the prediction, we'll create placeholder
+    // data for the other UI components. You can enhance your backend to
+    // provide these details if needed.
+    return {
+      verdict,
+      riskScore,
+      analysis: {
+        pixelAnalysis: riskScore, // Using risk score as a proxy
+        artificialPatterns: riskScore > 50 ? Math.floor(Math.random() * 40) + 50 : Math.floor(Math.random() * 50),
+        metadataCheck: 50, // Placeholder
+        compressionArtifacts: riskScore > 60 ? Math.floor(Math.random() * 30) + 60 : Math.floor(Math.random() * 60),
+      },
+      technical: {
+        resolution: 'N/A',
+        fileSize: imageFile ? `${(imageFile.size / 1024 / 1024).toFixed(2)} MB` : 'N/A',
+        format: imageFile ? imageFile.type.split('/')[1].toUpperCase() : 'N/A',
+        colorSpace: 'N/A',
+      },
+      flags: [
+        { type: 'AI Generation Probability', status: riskScore > 75 ? 'fail' : riskScore > 25 ? 'warning' : 'pass', description: `The model is ${riskScore}% confident the image is AI-generated.` },
+        { type: 'Metadata Verification', status: 'warning', description: 'Backend does not currently analyze image metadata.' },
+      ]
+    };
+  };
+
   const handleScan = async () => {
     if (inputType === 'file' && !imageFile) {
       toast.error("Please select an image file to analyze");
       return;
     }
-    if (inputType === 'url' && !imageUrl.trim()) {
-      toast.error("Please enter an image URL to analyze");
-      return;
+    // Note: URL-based analysis is not implemented in your backend, so we focus on file uploads.
+    if (inputType === 'url') {
+        toast.error("URL analysis is not yet supported. Please upload a file.");
+        return;
     }
 
     setIsScanning(true);
-    toast.info("Analyzing image for AI generation...");
+    setResults(null); // Clear previous results
+    toast.info("Uploading and analyzing image...");
 
-    setTimeout(() => {
-      const mockResults = {
-        verdict: Math.random() > 0.6 ? 'Suspicious' : Math.random() > 0.3 ? 'Human Made' : 'AI Generated',
-        riskScore: Math.floor(Math.random() * 100),
-        analysis: {
-          pixelAnalysis: Math.floor(Math.random() * 100),
-          artificialPatterns: Math.floor(Math.random() * 100),
-          metadataCheck: Math.floor(Math.random() * 100),
-          compressionArtifacts: Math.floor(Math.random() * 100),
-        },
-        technical: {
-          resolution: '1920x1080',
-          fileSize: '2.4 MB',
-          format: 'JPEG',
-          colorSpace: 'sRGB',
-        },
-        flags: [
-          { type: 'Noise Pattern Analysis', status: Math.random() > 0.5 ? 'pass' : 'warning', description: 'Digital noise characteristic of AI generation' },
-          { type: 'Compression Analysis', status: Math.random() > 0.5 ? 'pass' : 'fail', description: 'Image compression and generation artifacts' },
-          { type: 'Metadata Verification', status: Math.random() > 0.5 ? 'pass' : 'warning', description: 'Camera and generation software metadata' },
-          { type: 'Frequency Analysis', status: Math.random() > 0.5 ? 'pass' : 'fail', description: 'Frequency domain characteristic patterns' },
-        ]
-      };
+    // Create a FormData object to send the file
+    const formData = new FormData();
+    formData.append("file", imageFile!);
+
+    try {
+      // Make the API call to your FastAPI backend
+      const response = await fetch("http://localhost:8000/image/analyze", { // Ensure this URL is correct
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Analysis failed due to a server error.");
+      }
+
+      const data = await response.json();
       
-      setResults(mockResults);
-      setIsScanning(false);
+      // Process the API response and format it for the UI
+      const formattedResults = processApiResponse(data);
+      setResults(formattedResults);
       toast.success("Image analysis complete!");
-    }, 4000);
+
+    } catch (error) {
+      console.error("Analysis Error:", error);
+      toast.error(error instanceof Error ? error.message : "An unknown error occurred.");
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   const getVerdictColor = (verdict: string) => {

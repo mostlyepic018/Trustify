@@ -56,14 +56,14 @@ const ScamJobDetector = () => {
       if (Object.keys(socialMediaObj).length > 0) payload.social_media = socialMediaObj;
       if (jobPostDate) payload.job_post_date = jobPostDate;
 
-      const response = await fetch("http://localhost:8000/job-offers/analyze", {
+      const response = await fetch("http://localhost:8000/job/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       if (!response.ok) throw new Error("Failed to analyze job posting");
       const data = await response.json();
-      setResults(data);
+      setResults(data.result);
       toast.success("Job analysis complete!");
     } catch (error) {
       toast.error("Failed to analyze job posting");
@@ -199,114 +199,31 @@ const ScamJobDetector = () => {
 
         {/* Results */}
         {results && (
-          <div className="space-y-6 animate-fade-in">
-            {/* Verdict */}
-            <Card className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-white/20">
-              <CardContent className="py-8">
-                <div className="text-center space-y-4">
-                  <div className={`inline-flex items-center gap-2 px-6 py-3 rounded-full text-lg font-semibold border-2 ${getVerdictColor(results.risk_level)}`}>
-                    {results.risk_level === 'LOW' && <CheckCircle className="w-6 h-6" />}
-                    {results.risk_level === 'MEDIUM' && <AlertTriangle className="w-6 h-6" />}
-                    {results.risk_level === 'HIGH' && <XCircle className="w-6 h-6" />}
-                    {results.risk_level}
-                  </div>
-                  <div className="space-y-2">
-                    <div className="text-4xl font-bold text-slate-900 dark:text-white">
-                      {results.confidence_score}%
-                    </div>
-                    <div className="text-slate-600 dark:text-slate-400">
-                      Risk Score
-                    </div>
-                  </div>
+          <Card className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-white/20 mt-8">
+            <CardContent className="py-8 text-center space-y-4">
+              <h2 className="text-xl font-bold mb-4 text-slate-900 dark:text-white">Job Analysis Result</h2>
+              {results.is_suspicious !== undefined && (
+                <div className="text-lg font-bold text-slate-900 dark:text-white">
+                  Suspicious: {results.is_suspicious ? 'Yes' : 'No'}
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Red Flags */}
-            <Card className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-white/20">
-              <CardHeader>
-                <CardTitle className="text-slate-900 dark:text-white">Red Flags</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {results.red_flags && results.red_flags.length > 0 ? (
-                    results.red_flags.map((flag: string, idx: number) => (
-                      <div key={idx} className="flex items-center gap-2 text-red-600">
-                        <AlertTriangle className="w-4 h-4" />
-                        <span>{flag}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-slate-600 dark:text-slate-400">No red flags detected.</div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Warnings */}
-            {results.warnings && results.warnings.length > 0 && (
-              <Card className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-white/20">
-                <CardHeader>
-                  <CardTitle className="text-slate-900 dark:text-white">Warnings</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="list-disc pl-6 space-y-1">
-                    {results.warnings.map((w: string, idx: number) => (
-                      <li key={idx} className="text-amber-600">{w}</li>
-                    ))}
-                  </ul>
+              )}
+              {results.risk_level && (
+                <div className="text-base font-semibold text-slate-700 dark:text-slate-200">Risk Level: {results.risk_level}</div>
+              )}
+              {results.confidence_score !== undefined && (
+                <div className="text-base text-slate-700 dark:text-slate-200">Confidence Score: {results.confidence_score}</div>
+              )}
+              {results.final_prediction_reason && (
+                <div className="text-base text-slate-700 dark:text-slate-200">Reason: {results.final_prediction_reason}</div>
+            )}
+              {results.timestamp && (
+                <div className="text-sm text-slate-500 dark:text-slate-400">Checked at: {results.timestamp}</div>
+              )}
+              {results.red_flags && results.red_flags.length > 0 && (
+                <div className="text-base text-red-600">Red Flags: {results.red_flags.join(', ')}</div>
+              )}
                 </CardContent>
               </Card>
-            )}
-
-            {/* Recommendations */}
-            {results.recommendations && results.recommendations.length > 0 && (
-              <Card className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-white/20">
-                <CardHeader>
-                  <CardTitle className="text-slate-900 dark:text-white">Recommendations</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="list-disc pl-6 space-y-1">
-                    {results.recommendations.map((r: string, idx: number) => (
-                      <li key={idx} className="text-emerald-700 dark:text-emerald-300">{r}</li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Verification Checks */}
-            {results.verification_checks && Object.keys(results.verification_checks).length > 0 && (
-              <Card className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-white/20">
-                <CardHeader>
-                  <CardTitle className="text-slate-900 dark:text-white">Verification Checks</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="list-disc pl-6 space-y-1">
-                    {Object.entries(results.verification_checks).map(([k, v], idx) => (
-                      <li key={idx} className="text-slate-700 dark:text-slate-300"><b>{k}:</b> {v}</li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Similarity Matches */}
-            {results.similarity_matches && results.similarity_matches.length > 0 && (
-              <Card className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-white/20">
-                <CardHeader>
-                  <CardTitle className="text-slate-900 dark:text-white">Similarity Matches</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="list-disc pl-6 space-y-1">
-                    {results.similarity_matches.map((m: string, idx: number) => (
-                      <li key={idx} className="text-blue-700 dark:text-blue-300">{m}</li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            )}
-          </div>
         )}
       </div>
     </DashboardLayout>

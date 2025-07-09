@@ -119,9 +119,9 @@ class NewsSearcher:
                         'api_source': 'google_search'
                     })
                 
-                # Add delay between requests to be nice to Google
-                if request_num < requests_needed - 1:
-                    time.sleep(1)
+                # Removed delay between requests
+                # if request_num < requests_needed - 1:
+                #     time.sleep(1)
                     
             except Exception as e:
                 print(f"Google Search API error on request {request_num + 1}: {e}")
@@ -163,7 +163,7 @@ class NewsSearcher:
         all_results.extend(news_results)
         
         # Add small delay to be nice to APIs
-        time.sleep(0.5)
+        # time.sleep(0.5)
         
         # Try Google Search if we have the key and need more results
         remaining_needed = max_results - len(all_results)
