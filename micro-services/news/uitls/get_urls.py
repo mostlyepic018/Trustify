@@ -1,57 +1,62 @@
-# Multi-API News Search System for Hackathon
-# Quick implementation focusing on getting it working fast
 import os
+import logging
 import requests
-import json
-from datetime import datetime
-from typing import List, Dict, Optional
-from dataclasses import asdict
-from .scrape_wed import WebScrapingAgent
+from typing import List, Dict
 from dotenv import load_dotenv
-import time
 
 load_dotenv()
+logger = logging.getLogger(__name__)
+if not logger.handlers:
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s [%(name)s] %(message)s')
+
+
 class NewsSearcher:
     def __init__(self, news_api_key=None, google_api_key=None, google_search_engine_id=None):
-        """
-        Initialize with API keys. Add keys as you get them.
-        """
-        self.news_api_key = os.getenv('news_api_key', news_api_key)
-        self.google_api_key = os.getenv('google_api_key', google_api_key)
-        self.google_search_engine_id = os.getenv('google_search_engine_id', google_search_engine_id)
+        """Initialize with API keys. Add keys as you get them."""
+        # Prefer uppercase envs; fallback to provided args or lowercase
+        self.news_api_key = os.getenv('NEWS_API_KEY') or news_api_key or os.getenv('news_api_key')
+        self.google_api_key = os.getenv('GOOGLE_API_KEY') or google_api_key or os.getenv('google_api_key')
+        self.google_search_engine_id = os.getenv('GOOGLE_SEARCH_ENGINE_ID') or google_search_engine_id or os.getenv('google_search_engine_id')
         self.timeout = 5
         self.max_results = 20  # Increase default
-        
+
         # Simple cache to avoid duplicate API calls during demo
-        self._cache = {}
-    
+        self._cache: Dict[str, List[Dict]] = {}
+
+        logger.info(
+            f"NewsSearcher init: NEWS_API_KEY={'SET' if self.news_api_key else 'MISSING'}, "
+            f"GOOGLE_API_KEY={'SET' if self.google_api_key else 'MISSING'}, "
+            f"GOOGLE_SEARCH_ENGINE_ID={'SET' if self.google_search_engine_id else 'MISSING'}"
+        )
+
     def search_news_api(self, query: str, max_results: int = 10) -> List[Dict]:
-        """
-        Search using News API - usually the easiest to get started with
-        """
+        """Search using News API."""
         if not self.news_api_key:
+            logger.warning("NewsAPI key missing; skipping NewsAPI search.")
             return []
-        
+
         url = "https://newsapi.org/v2/everything"
         params = {
             'q': query,
             'apiKey': self.news_api_key,
             'language': 'en',
             'sortBy': 'relevancy',
-            'pageSize': min(max_results, 20)  # API limit
+            'pageSize': min(max_results, 20)
         }
-        
+
         try:
+            logger.info(f"NewsAPI request -> {url} | q='{query}' pageSize={params['pageSize']}")
             response = requests.get(url, params=params, timeout=self.timeout)
+            logger.info(f"NewsAPI status={response.status_code}")
             response.raise_for_status()
             data = response.json()
-            
-            results = []
+            if data.get('status') != 'ok':
+                logger.warning(f"NewsAPI status not ok: {data}")
+
+            results: List[Dict] = []
             for article in data.get('articles', []):
-                # Skip articles without title (common issue)
                 if not article.get('title'):
                     continue
-                    
                 results.append({
                     'title': article.get('title', ''),
                     'url': article.get('url', ''),
@@ -60,200 +65,126 @@ class NewsSearcher:
                     'published_at': article.get('publishedAt', ''),
                     'api_source': 'news_api'
                 })
-            
             return results
-            
+
+        except requests.HTTPError as http_e:
+            body = None
+            try:
+                body = response.text
+            except Exception:
+                body = None
+            logger.error(f"NewsAPI HTTP error: {http_e}; body={body}")
+            return []
         except Exception as e:
-            print(f"News API error: {e}")
+            logger.error(f"NewsAPI error: {e}")
             return []
-    
+
     def search_google_news(self, query: str, max_results: int = 10) -> List[Dict]:
-        """
-        Search using Google Custom Search API - excellent quality results
-        Note: Google API limit is 10 results per request, but we can make multiple requests
-        """
+        """Search using Google Custom Search API."""
         if not self.google_api_key or not self.google_search_engine_id:
+            logger.warning("Google CSE keys missing; skipping Google search.")
             return []
-        
-        all_results = []
-        requests_needed = (max_results + 9) // 10  # Calculate how many requests we need
-        
+
+        all_results: List[Dict] = []
+        requests_needed = (max_results + 9) // 10
+
         for request_num in range(requests_needed):
-            start_index = request_num * 10 + 1  # Google uses 1-based indexing
+            start_index = request_num * 10 + 1
             current_request_limit = min(10, max_results - len(all_results))
-            
             if current_request_limit <= 0:
                 break
-                
+
             url = "https://www.googleapis.com/customsearch/v1"
             params = {
                 'key': self.google_api_key,
                 'cx': self.google_search_engine_id,
-                'q': f"{query} news",  # Add 'news' to focus on news articles
+                'q': f"{query} news",
                 'num': current_request_limit,
                 'start': start_index,
-                'sort': 'date'  # Sort by date for recent news
+                'sort': 'date'
             }
-            
+
             try:
+                logger.info(f"Google CSE request -> {url} | q='{params['q']}' num={params['num']} start={params['start']}")
                 response = requests.get(url, params=params, timeout=self.timeout)
+                logger.info(f"Google CSE status={response.status_code}")
                 response.raise_for_status()
                 data = response.json()
-                
+
                 items = data.get('items', [])
-                if not items:  # No more results available
+                if not items:
+                    logger.info("Google CSE returned no items; stopping pagination.")
                     break
-                
+
                 for item in items:
-                    # Extract source from display URL
                     source = item.get('displayLink', 'Unknown')
                     if '.' in source:
                         source = source.split('.')[0].title()
-                    
                     all_results.append({
                         'title': item.get('title', ''),
                         'url': item.get('link', ''),
                         'snippet': item.get('snippet', ''),
                         'source': source,
-                        'published_at': '',  # Google Custom Search doesn't provide publish date
+                        'published_at': '',
                         'api_source': 'google_search'
                     })
-                
-                # Removed delay between requests
-                # if request_num < requests_needed - 1:
-                #     time.sleep(1)
-                    
+
+            except requests.HTTPError as http_e:
+                body = None
+                try:
+                    body = response.text
+                except Exception:
+                    body = None
+                logger.error(f"Google CSE HTTP error on request {request_num + 1}: {http_e}; body={body}")
+                break
             except Exception as e:
-                print(f"Google Search API error on request {request_num + 1}: {e}")
-                break  # Stop making more requests if one fails
-        
+                logger.error(f"Google CSE error on request {request_num + 1}: {e}")
+                break
+
         return all_results
-    
+
     def remove_duplicates(self, results: List[Dict]) -> List[Dict]:
-        """
-        Simple duplicate removal by URL - good enough for hackathon
-        """
+        """Remove duplicate URLs."""
         seen_urls = set()
-        unique_results = []
-        
+        unique_results: List[Dict] = []
         for result in results:
             url = result.get('url', '')
             if url and url not in seen_urls:
                 seen_urls.add(url)
                 unique_results.append(result)
-        
         return unique_results
-    
+
     def search(self, query: str, max_results: int = None) -> List[Dict]:
-        """
-        Main search function - tries multiple APIs and combines results
-        """
+        """Try multiple APIs and combine results."""
         if max_results is None:
             max_results = self.max_results
-        
-        # Simple caching for demo purposes
+
         cache_key = f"{query}_{max_results}"
         if cache_key in self._cache:
+            logger.info("Using cached search results.")
             return self._cache[cache_key]
-        
-        all_results = []
-        
-        # Try News API first (usually most reliable)
-        news_results = self.search_news_api(query, max_results // 2)  # Get half from News API
+
+        all_results: List[Dict] = []
+
+        news_results = self.search_news_api(query, max_results // 2)
         all_results.extend(news_results)
-        
-        # Add small delay to be nice to APIs
-        # time.sleep(0.5)
-        
-        # Try Google Search if we have the key and need more results
+
         remaining_needed = max_results - len(all_results)
         if remaining_needed > 0 and self.google_api_key and self.google_search_engine_id:
             google_results = self.search_google_news(query, remaining_needed)
             all_results.extend(google_results)
-        
-        # Remove duplicates and limit results
+
         unique_results = self.remove_duplicates(all_results)[:max_results]
-        
-        # Cache for demo
         self._cache[cache_key] = unique_results
-        
+        logger.info(f"Combined results: {len(unique_results)} (NewsAPI={len(news_results)}, Google={len(all_results) - len(news_results)})")
         return unique_results
-    
+
     def get_available_apis(self) -> List[str]:
-        """
-        Check which APIs are configured
-        """
+        """Check which APIs are configured."""
         apis = []
         if self.news_api_key:
             apis.append("News API")
         if self.google_api_key and self.google_search_engine_id:
             apis.append("Google Custom Search")
         return apis
-
-
-# Example usage and testing
-def main():
-    """
-    Example usage - replace with your actual API keys
-    """
-    # ADD YOUR API KEYS HERE
-    NEWS_API_KEY = os.getenv('news_api_key')# Get from newsapi.org
-    GOOGLE_API_KEY = os.getenv('google_api_key')  # Get from Google Cloud Console
-    GOOGLE_SEARCH_ENGINE_ID = os.getenv('google_search_engine_id') # Custom Search Engine ID
-    
-    # Initialize searcher
-    searcher = NewsSearcher(
-        news_api_key=NEWS_API_KEY if NEWS_API_KEY != "your_news_api_key_here" else None,
-        google_api_key=GOOGLE_API_KEY if GOOGLE_API_KEY != "your_google_api_key_here" else None,
-        google_search_engine_id=GOOGLE_SEARCH_ENGINE_ID if GOOGLE_SEARCH_ENGINE_ID != "your_search_engine_id_here" else None
-    )
-    
-    # Check what APIs are available
-    available_apis = searcher.get_available_apis()
-    
-    if not available_apis:
-        return
-
-def get_info(query):
-    NEWS_API_KEY = os.getenv('news_api_key')
-    GOOGLE_API_KEY = os.getenv('google_api_key')
-    GOOGLE_SEARCH_ENGINE_ID = os.getenv('google_search_engine_id')
-
-    # Initialize searcher
-    searcher = NewsSearcher(
-        news_api_key=NEWS_API_KEY if NEWS_API_KEY != "your_news_api_key_here" else None,
-        google_api_key=GOOGLE_API_KEY if GOOGLE_API_KEY != "your_google_api_key_here" else None,
-        google_search_engine_id=GOOGLE_SEARCH_ENGINE_ID if GOOGLE_SEARCH_ENGINE_ID != "your_search_engine_id_here" else None
-    )
-
-    # Check what APIs are available
-    available_apis = searcher.get_available_apis()
-
-    if not available_apis:
-        return []
-
-    # Get news results
-    results = searcher.search(query, max_results=15)
-    if not results:
-        return []
-
-    # Prepare url-metadata pairs for scraping
-    url_data = []
-    for r in results:
-        url_data.append({
-            'url': r['url'],
-            'metadata': {
-                'search_query': query,
-                'source': r.get('source', ''),
-                'api_source': r.get('api_source', ''),
-                'relevance_score': 1.0  # Placeholder, can be improved
-            }
-        })
-
-    # Scrape the URLs
-    agent = WebScrapingAgent(delay=1.0)
-    scraped_results = agent.scrape_multiple_urls(url_data)
-
-    # Return as list of dicts
-    return [asdict(res) for res in scraped_results] if scraped_results else []
     

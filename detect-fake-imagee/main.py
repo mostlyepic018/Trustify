@@ -30,6 +30,20 @@ async def analyze_image(file: UploadFile = File(...)):
         # Interpret result
         labels = model.config.id2label
         result = {labels[i]: float(p) for i, p in enumerate(probs[0])}
-        return JSONResponse(content={"prediction": result})
+
+        # --- Metadata extraction ---
+        meta = {}
+        try:
+            exif_data = image.getexif()
+            if exif_data:
+                for tag_id, value in exif_data.items():
+                    tag = Image.ExifTags.TAGS.get(tag_id, tag_id)
+                    meta[str(tag)] = str(value)
+            else:
+                meta = None
+        except Exception as meta_e:
+            meta = None
+
+        return JSONResponse(content={"prediction": result, "metadata": meta})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image analysis failed: {str(e)}")

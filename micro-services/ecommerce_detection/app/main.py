@@ -68,7 +68,7 @@ async def analyze(data: UrlRequest):
     ])
 
     # ✅ Final verdict
-    verdict = "Unsafe" if risk_score >= 3 else "Safe"
+    verdict = "Unsafe" if risk_score >= 5 else "Safe"
 
     return {
         "domain": domain_info,
