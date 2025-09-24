@@ -143,12 +143,42 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-# Ignore everything in detect-fake-imagee
-detect-fake-imagee/*
+myenv/
 
-# But do NOT ignore these two files
-!detect-fake-imagee/download_model2
-!detect-fake-imagee/main
+# AI Models and Cache directories
+models_cache/
+your_cache_directory/
+ai-image-detector-model2/
+detect-fake-imagee/models_cache/
+detect-fake-imagee/your_cache_directory/
+detect-fake-imagee/ai-image-detector-model2/
+detect-fake-imagee/venv/
+
+# WhatsApp Bot tokens and session data
+whatsapp-bot/tokens/
+tokens/
+
+# Node modules
+node_modules/
+**/node_modules/
+
+# Lock files (keep requirements.txt but ignore lock files)
+package-lock.json
+yarn.lock
+bun.lockb
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Ignore everything in detect-fake-imagee except specific files
+detect-fake-imagee/*
+# But do NOT ignore these specific files
+!detect-fake-imagee/download_model2.py
+!detect-fake-imagee/main.py
+!detect-fake-imagee/requirements.txt
+
 # Spyder project settings
 .spyderproject
 .spyproject
