@@ -227,3 +227,43 @@ Base URL: `http://127.0.0.1:8000`
 
 - Torch on Windows can be finicky. The `/image/analyze` endpoint lazy-loads torch/transformers so the rest of the backend can still run; if it fails, the API returns `503` with an actionable error.
 
+### 🖼️ Image model troubleshooting (Windows)
+
+If `/image/analyze` returns `503 Image analysis unavailable`, it usually means **PyTorch/Transformers failed to import** or the **model couldn’t be downloaded**.
+
+1) Verify the backend venv can import torch/transformers
+
+```powershell
+.\.venv\Scripts\python.exe -c "import torch, transformers; print('torch:', torch.__version__); print('transformers:', transformers.__version__)"
+```
+
+2) Install a working PyTorch build (recommended)
+
+Install PyTorch using the official selector for your machine (CPU-only is fine).
+After installing, re-run the import check above.
+
+3) Pre-download (cache) the model for offline/slow networks
+
+Trustify uses the Hugging Face model `Ateeqq/ai-vs-human-image-detector`. You can cache it locally so the first `/image/analyze` call doesn’t need to download anything:
+
+```powershell
+.\.venv\Scripts\python.exe detect-fake-imagee\download_model2.py
+```
+
+This downloads into `models_cache/` by default.
+
+4) Point the backend at the cache (optional)
+
+In your root `.env`:
+
+```env
+AI_IMAGE_MODEL_ID=Ateeqq/ai-vs-human-image-detector
+AI_IMAGE_MODEL_CACHE_DIR=./models_cache
+```
+
+5) Common Windows fixes
+
+- Install/repair **Microsoft Visual C++ Redistributable** (PyTorch may fail with DLL load errors without it).
+- If you have multiple Pythons (Anaconda + venv), make sure you’re starting Uvicorn with:
+  `.\.venv\Scripts\python.exe -m uvicorn micro-services.main:app ...`
+
