@@ -1,13 +1,13 @@
 **Category : Open Innovation**
 
-# Trustify
+<h1 align="center">🛡️ Trustify</h1>
 
-An AI-driven multi-domain scam & misinformation detection system that runs locally.
+<p align="center"><b>AI-driven multi-domain scam & misinformation detection — runs locally.</b></p>
 
 Trustify includes:
-- A web UI (React) for running detectors and viewing real-time Dashboard/History
-- A FastAPI backend that powers detectors + persistence
-- An optional WhatsApp bot (WPPConnect) to run scans from WhatsApp
+- 🖥️ A web UI (React) for running detectors and viewing real-time Dashboard/History
+- ⚡ A FastAPI backend that powers detectors + persistence
+- 💬 An optional WhatsApp bot (WPPConnect) to run scans from WhatsApp
 
 ---
 
@@ -16,20 +16,20 @@ Trustify includes:
 Online transactions and social platforms make it easy to share information and buy/sell — and equally easy to scam users.
 
 Trustify focuses on:
-- Fake news / misinformation
-- E-commerce fraud websites
-- Scam job postings
-- AI-generated / manipulated images
+- 📰 Fake news / misinformation
+- 🛒 E-commerce fraud websites
+- 💼 Scam job postings
+- 🖼️ AI-generated / manipulated images
 
 ---
 
 ## 📌 B. Solution Overview
 
 Trustify is an end-to-end detection platform:
-- Multiple detectors behind one FastAPI service
-- Explainable outputs (verdict + score)
-- Scan persistence in SQLite (Dashboard/History are real-time, not mock)
-- Optional WhatsApp bot that calls the FastAPI backend
+- 🧠 Multiple detectors behind one FastAPI service
+- ✅ Explainable outputs (verdict + score)
+- 🗃️ Scan persistence in SQLite (Dashboard/History are real-time, not mock)
+- 💬 Optional WhatsApp bot that calls the FastAPI backend
 
 ---
 
@@ -51,18 +51,18 @@ graph TD
 ## 📌 D. Tech Stack
 
 ### Backend
-- FastAPI + Uvicorn
-- SQLModel + SQLite (default: `sqlite:///data/app.db`)
-- Gemini via `google-generativeai` (news verification; requires API key)
-- Torch + Transformers for image analysis (lazy-loaded; common Windows caveats)
+- ⚡ FastAPI + Uvicorn
+- 🗄️ SQLModel + SQLite (default: `sqlite:///data/app.db`)
+- 🤖 Gemini via `google-generativeai` (news verification; requires API key)
+- 🧪 Torch + Transformers for image analysis (lazy-loaded; common Windows caveats)
 
 ### Frontend
-- Vite + React + TypeScript
-- Tailwind CSS + shadcn/ui
+- ⚛️ Vite + React + TypeScript
+- 🎨 Tailwind CSS + shadcn/ui
 
 ### WhatsApp Bot (optional)
-- Node.js + TypeScript
-- `@wppconnect-team/wppconnect`
+- 🟩 Node.js + TypeScript
+- 💬 `@wppconnect-team/wppconnect`
 
 ---
 
@@ -88,8 +88,8 @@ models_cache/                   # Optional Hugging Face cache directory
 ## 📌 F. How To Run (Windows)
 
 ### Prerequisites
-- Python 3.11+ (3.12 works)
-- Node.js 18+
+- 🐍 Python 3.11+ (3.12 works)
+- 🟩 Node.js 18+
 
 Important: If you have Anaconda installed, it’s easy to run `uvicorn` from the wrong interpreter and hit missing-module errors. Prefer running with the repo venv Python path (shown below).
 
