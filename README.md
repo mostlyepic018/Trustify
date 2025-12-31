@@ -37,10 +37,10 @@ Trustify is an end-to-end detection platform:
 
 ```mermaid
 graph TD
-  U[User (Web / WhatsApp)] -->|Web| FE[Frontend (Vite + React)]
+  U[User - Web or WhatsApp] -->|Web| FE[Frontend - Vite React]
   FE -->|REST| API[FastAPI Backend]
 
-  U -->|WhatsApp| WA[WhatsApp Bot (Node + WPPConnect)]
+  U -->|WhatsApp| WA[WhatsApp Bot - Node WPPConnect]
   WA -->|REST| API
 
   API -->|SQLite| DB[(data/app.db)]
